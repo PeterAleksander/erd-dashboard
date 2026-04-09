@@ -7,8 +7,8 @@ const SPF_RECORD      = 'v=spf1 include:sendgrid.net ~all';
 const tmTarget = (s) => `vantacaportalmanager-${s.toLowerCase()}.trafficmanager.net`;
 
 const SAMPLE = [
-  'cardinalmg\t\t6/1/2026\t\t\tNew\tAddition\tCardinal Management Group\t\thome-cardinalmg-001\thome.cardinalmg.com\tn68huu3km0fejsukd2k9f7o4r0',
-  'cardinalmg\t\t6/1/2026\t\t\tNew\tAddition\tCardinal Management Group\t\tportal-cardinalmg-001\tportal.cardinalmg.com\ti7f1qge38uqhpp8vmrj66uo1ji',
+  'testDB\t\t6/1/2026\t\t\tNew\tAddition\tTest Management Group\t\thome-TestMG-001\thome.testmg.com\tTESTKEY',
+  'testDB\t\t6/1/2026\t\t\tNew\tAddition\tTest Management Group\t\tportal-Testmg-001\tportal.testmg.com\tTESTKEY',
 ].join('\n');
 
 // ── Parse ─────────────────────────────────────────────────────────────────────

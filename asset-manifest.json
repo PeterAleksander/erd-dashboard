@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/erd-dashboard/static/css/main.f13ad324.css",
-    "main.js": "/erd-dashboard/static/js/main.fe9577ad.js",
+    "main.js": "/erd-dashboard/static/js/main.0cdc311f.js",
     "static/js/453.9efefccf.chunk.js": "/erd-dashboard/static/js/453.9efefccf.chunk.js",
     "index.html": "/erd-dashboard/index.html",
     "main.f13ad324.css.map": "/erd-dashboard/static/css/main.f13ad324.css.map",
-    "main.fe9577ad.js.map": "/erd-dashboard/static/js/main.fe9577ad.js.map",
+    "main.0cdc311f.js.map": "/erd-dashboard/static/js/main.0cdc311f.js.map",
     "453.9efefccf.chunk.js.map": "/erd-dashboard/static/js/453.9efefccf.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.f13ad324.css",
-    "static/js/main.fe9577ad.js"
+    "static/js/main.0cdc311f.js"
   ]
 }

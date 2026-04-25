@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import ERDDashboard from './components/ERDDashboard';
 import DNSLetterGenerator from './components/DNSLetterGenerator';
+import TI4Companion from './components/TI4Companion';
 import './App.css';
 
 const TABS = [
   { id: 'erd',  label: 'ERD Dashboard' },
   { id: 'dns',  label: 'DNS Letter Generator' },
+  { id: 'ti4',  label: 'TI4 Companion' },
 ];
 
 function App() {
@@ -55,6 +57,20 @@ function App() {
               Paste TSV onboarding data → get formatted DNS config letters for Zendesk
             </p>
             <DNSLetterGenerator />
+          </>
+        )}
+        {tab === 'ti4' && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#38bdf8', flexShrink: 0 }} />
+              <h1 style={{ fontSize: 18, fontWeight: 700, color: '#e4e4e7', letterSpacing: '-0.3px', fontFamily: "'JetBrains Mono',monospace" }}>
+                TI4 Companion
+              </h1>
+            </div>
+            <p style={{ fontSize: 11, color: '#52525b', marginLeft: 22, marginBottom: 24, fontFamily: "'JetBrains Mono',monospace" }}>
+              Track your TI4 setup and strategy with the companion interface.
+            </p>
+            <TI4Companion />
           </>
         )}
       </div>

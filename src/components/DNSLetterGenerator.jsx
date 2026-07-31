@@ -4,11 +4,13 @@ import React, { useState, useRef } from 'react';
 const SENDGRID_ID     = 'u3744841';
 const SENDGRID_DOMAIN = 'wl092.sendgrid.net';
 const SPF_RECORD      = 'v=spf1 include:sendgrid.net ~all';
+const DKIM_SELECTOR   = 'van';
 const tmTarget = (s) => `vantacaportalmanager-${s.toLowerCase()}.trafficmanager.net`;
 
+// Columns: Company ID | Go Live | App Service Certificate Name | CN | TXT Record | SG EM Host | SG URL Host
 const SAMPLE = [
-  'testDB\t\t6/1/2026\t\t\tNew\tAddition\tTest Management Group\t\thome-TestMG-001\thome.testmg.com\tTESTKEY',
-  'testDB\t\t6/1/2026\t\t\tNew\tAddition\tTest Management Group\t\tportal-Testmg-001\tportal.testmg.com\tTESTKEY',
+  'testDB\t6/1/2026\thome-TestMG-001\thome.testmg.com\tTESTKEY\tem2739\turl8330',
+  'testDB\t6/1/2026\tportal-Testmg-001\tportal.testmg.com\tTESTKEY\tem2739\turl8330',
 ].join('\n');
 
 // ── Parse ─────────────────────────────────────────────────────────────────────
@@ -18,25 +20,26 @@ function parseInput(raw) {
 
   lines.forEach((line, idx) => {
     const cols = line.split('\t');
-    if (cols.length < 12) {
-      errors.push(`Line ${idx + 1}: Expected at least 12 tab-separated columns, got ${cols.length}`);
+    if (cols.length < 7) {
+      errors.push(`Line ${idx + 1}: Expected 7 tab-separated columns, got ${cols.length}`);
       return;
     }
     const clientShort = cols[0].trim();
-    const goLive      = cols[2].trim();
-    const companyName = cols[7].trim();
-    const fullDomain  = cols[10].trim();
-    const distId      = cols[11].trim();
+    const goLive      = cols[1].trim();
+    const fullDomain  = cols[3].trim();
+    const distId      = cols[4].trim();
+    const mailHost    = cols[5].trim();
+    const linkHost    = cols[6].trim();
 
     if (!clientShort || !fullDomain || !distId) {
-      errors.push(`Line ${idx + 1}: Missing required field (client name, domain, or distribution ID)`);
+      errors.push(`Line ${idx + 1}: Missing required field (Company ID, CN, or TXT Record)`);
       return;
     }
     const dot = fullDomain.indexOf('.');
     if (dot < 1) { errors.push(`Line ${idx + 1}: Invalid domain "${fullDomain}"`); return; }
 
     rows.push({
-      clientShort, goLive, companyName, distId,
+      clientShort, goLive, distId, mailHost, linkHost,
       subdomain:  fullDomain.substring(0, dot),
       baseDomain: fullDomain.substring(dot + 1),
     });
@@ -46,8 +49,14 @@ function parseInput(raw) {
   rows.forEach(r => {
     const key = `${r.clientShort.toLowerCase()}||${r.baseDomain.toLowerCase()}`;
     if (!groupMap.has(key))
-      groupMap.set(key, { clientShort: r.clientShort, companyName: r.companyName, goLive: r.goLive, baseDomain: r.baseDomain, entries: [] });
-    groupMap.get(key).entries.push({ subdomain: r.subdomain, distId: r.distId });
+      groupMap.set(key, {
+        clientShort: r.clientShort, goLive: r.goLive, baseDomain: r.baseDomain,
+        mailHost: '', linkHost: '', entries: [],
+      });
+    const g = groupMap.get(key);
+    if (!g.mailHost && r.mailHost) g.mailHost = r.mailHost;
+    if (!g.linkHost && r.linkHost) g.linkHost = r.linkHost;
+    g.entries.push({ subdomain: r.subdomain, distId: r.distId });
   });
 
   return { groups: Array.from(groupMap.values()), errors };
@@ -55,7 +64,7 @@ function parseInput(raw) {
 
 // ── Letter HTML (plain HTML string for clipboard) ─────────────────────────────
 function buildLetterHTML(g) {
-  const tm = tmTarget(g.clientShort);
+  const tm    = tmTarget(g.clientShort);
   const sgId  = SENDGRID_ID;
   const sgDom = SENDGRID_DOMAIN;
   const sgNum = sgId.replace('u', '');
@@ -79,6 +88,19 @@ function buildLetterHTML(g) {
     '</tbody></table>'
   ).join('');
 
+  const emailSection = (g.mailHost && g.linkHost)
+    ? `${tblOpen('Host')}
+${row('CNAME', g.mailHost,                       `${sgId}.${sgDom}`)}
+${row('CNAME', `${DKIM_SELECTOR}._domainkey`,    `${DKIM_SELECTOR}.domainkey.${sgId}.${sgDom}`)}
+${row('CNAME', `${DKIM_SELECTOR}2._domainkey`,   `${DKIM_SELECTOR}2.domainkey.${sgId}.${sgDom}`)}
+${row('CNAME', g.linkHost,                       'sendgrid.net')}
+${row('CNAME', sgNum,                            'sendgrid.net')}
+</tbody></table>
+${tblOpen('Host')}
+${row('TXT', '@', SPF_RECORD)}
+</tbody></table>`
+    : `<p style="color:#b91c1c;font-weight:600;">&#9888; SendGrid records missing for ${g.baseDomain} (SG EM Host / SG URL Host columns are empty). Run the script first.</p>`;
+
   return `<p>Hello,</p>
 <p>In preparation for your project go-live, please add the following DNS records to <strong>${g.baseDomain}</strong>. Once the records have been added, please let us know so that we can verify the records on our end.</p>
 <p><strong>Important Notes:</strong></p>
@@ -92,16 +114,7 @@ ${portalTables}
 <p><em>Note: If your organization has an intranet with internal DNS, please add the above CNAME records there as well.</em></p>
 <p><strong>Email Management Records</strong></p>
 <p>These records allow emails from Vantaca to appear as coming from your domain and provide delivery status information. Without these records, emails may end up in recipients' spam folders.</p>
-${tblOpen('Host')}
-${row('CNAME', 'em',             `${sgId}.${sgDom}`)}
-${row('CNAME', 's1._domainkey',  `s1.domainkey.${sgId}.${sgDom}`)}
-${row('CNAME', 's2._domainkey',  `s2.domainkey.${sgId}.${sgDom}`)}
-${row('CNAME', 'url',            'sendgrid.net')}
-${row('CNAME', sgNum,            'sendgrid.net')}
-</tbody></table>
-${tblOpen('Host')}
-${row('TXT', '@', SPF_RECORD)}
-</tbody></table>
+${emailSection}
 <p>If you have an IT resource that manages your domain, you can forward this message to them, and they should be able to add these records for you.</p>`;
 }
 
@@ -135,7 +148,7 @@ export default function DNSLetterGenerator() {
   const [input, setInput]       = useState('');
   const [groups, setGroups]     = useState([]);
   const [errors, setErrors]     = useState([]);
-  const [copiedIdx, setCopiedIdx] = useState(null); // null | number | 'all'
+  const [copiedIdx, setCopiedIdx] = useState(null);
   const lettersRef = useRef([]);
 
   function handleGenerate() {
@@ -166,7 +179,7 @@ export default function DNSLetterGenerator() {
       {/* Input label row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '1.5px' }}>
-          Input (tab-delimited)
+          Input (tab-delimited from NewClientDNS.xlsx)
         </span>
         <button
           onClick={() => setInput(SAMPLE)}
@@ -182,7 +195,7 @@ export default function DNSLetterGenerator() {
       <textarea
         value={input}
         onChange={e => setInput(e.target.value)}
-        placeholder="Paste tab-separated rows here…"
+        placeholder="Paste rows from NewClientDNS.xlsx here (no header row)…"
         spellCheck={false}
         style={{
           width: '100%', minHeight: 140, resize: 'vertical',
@@ -258,6 +271,9 @@ export default function DNSLetterGenerator() {
               {g.goLive && (
                 <span style={{ fontSize: 11, color: '#71717a', marginLeft: 8 }}>Go-live: {g.goLive}</span>
               )}
+              {(!g.mailHost || !g.linkHost) && (
+                <span style={{ fontSize: 11, color: '#f87171', marginLeft: 8 }}>⚠ no SendGrid records</span>
+              )}
             </div>
             <button
               onClick={() => handleCopy(i)}
@@ -272,13 +288,6 @@ export default function DNSLetterGenerator() {
               {copiedIdx === i ? '✓ Copied' : 'Copy to Clipboard'}
             </button>
           </div>
-
-          {/* Company subtitle */}
-          {g.companyName && (
-            <div style={{ padding: '6px 20px', fontSize: 11, color: '#71717a', borderBottom: '1px solid #27272a' }}>
-              {g.companyName}
-            </div>
-          )}
 
           {/* Letter body preview */}
           <div
